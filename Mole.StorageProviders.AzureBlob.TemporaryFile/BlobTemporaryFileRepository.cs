@@ -82,12 +82,19 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
             return null;
         }
 
+        
         return new TemporaryFileModel
         {
             AvailableUntil = metadata.AvailableUntil,
             FileName = metadata.FileName,
             Key = key,
-            OpenReadStream = () => fileResponse.Value.Content
+            OpenReadStream = () =>
+            {
+                // The CMS uses methods not supported by the Stream returned by azure, so we copy to a memory stream.
+                var stream = new MemoryStream();
+                fileResponse.Value.Content.CopyTo(stream);
+                return stream;
+            }
         };
     }
 
