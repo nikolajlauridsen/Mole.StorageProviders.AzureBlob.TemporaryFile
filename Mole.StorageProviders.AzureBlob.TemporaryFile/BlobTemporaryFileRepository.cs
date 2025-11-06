@@ -1,5 +1,6 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Factories;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
@@ -14,15 +15,18 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 {
     private readonly ITemporaryBlobClientFactory _clientFactory;
     private readonly IJsonSerializer _jsonSerializer;
+    private readonly ILogger<BlobTemporaryFileRepository> _logger;
     private readonly TemporaryFileSettings _settings;
 
     public BlobTemporaryFileRepository(
         ITemporaryBlobClientFactory clientFactory,
         IOptions<TemporaryFileSettings> fileSettings,
-        IJsonSerializer jsonSerializer)
+        IJsonSerializer jsonSerializer,
+        ILogger<BlobTemporaryFileRepository> logger)
     {
         _clientFactory = clientFactory;
         _jsonSerializer = jsonSerializer;
+        _logger = logger;
         _settings = fileSettings.Value;
     }
 
@@ -47,12 +51,9 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
     private string GetMetaDataFileName(Guid key)
         => $"{key}{Constants.Constants.MetadaExtension}";
 
-    public async Task<TemporaryFileModel?> GetAsync(Guid key)
+    private async Task<MetaDataFile?> DownloadMetaDataFileAsync(BlobContainerClient container, string blobName)
     {
-        var container = await GetContainerAsync();
-        
-        // First we need to get metadata
-        var metaDataClient = container.GetBlobClient(GetMetaDataFileName(key));
+        var metaDataClient = container.GetBlobClient(blobName);
         if ((await metaDataClient.ExistsAsync())?.Value is false)
         {
             return null;
@@ -66,8 +67,15 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         }
 
         using var streamReader = new StreamReader(metaDataResponse.Value.Content);
-        var metadata = _jsonSerializer.Deserialize<MetaDataFile>(await streamReader.ReadToEndAsync());
+        return _jsonSerializer.Deserialize<MetaDataFile>(await streamReader.ReadToEndAsync());
+    }
 
+    public async Task<TemporaryFileModel?> GetAsync(Guid key)
+    {
+        BlobContainerClient container = await GetContainerAsync();
+        
+        // First we need to get metadata
+        var metadata = await DownloadMetaDataFileAsync(container, GetMetaDataFileName(key));
         if (metadata is null)
         {
             return null;
@@ -120,9 +128,44 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         await container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key), DeleteSnapshotsOption.IncludeSnapshots);
     }
 
-    public Task<IEnumerable<Guid>> CleanUpOldTempFiles(DateTime dateTime)
+    public async Task<IEnumerable<Guid>> CleanUpOldTempFiles(DateTime now)
     {
-        return Task.FromResult(Enumerable.Empty<Guid>());
+        _logger.LogInformation("Running cleanup.");
+        var container = await GetContainerAsync();
+        List<Guid> keysToDelete = new();
+        
+        // Find all metadata files and check for expired files
+        await foreach (BlobItem blob in container.GetBlobsAsync().Where(x => x.Name.EndsWith(Constants.Constants.MetadaExtension)))
+        {
+            var metaData = await DownloadMetaDataFileAsync(container, blob.Name);
+            if (metaData is null)
+            {
+                continue;
+            }
+
+            if (metaData.AvailableUntil < now)
+            {
+                keysToDelete.Add(metaData.Key);
+            }
+        }
+
+        _logger.LogInformation("Found {0} keys to delete.", keysToDelete.Count);
+        if (keysToDelete.Count == 0)
+        {
+            return [];
+        }
+
+        // Might as well do it actually async
+        var deleteTasks = new List<Task>();
+        foreach (var key in keysToDelete)
+        {
+           deleteTasks.Add(container.DeleteBlobIfExistsAsync(key.ToString()));
+           deleteTasks.Add(container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key)));
+        }
+        Task.WaitAll(deleteTasks);
+        
+        _logger.LogInformation("Cleanup complete.");
+        return keysToDelete;
     }
 }
 
