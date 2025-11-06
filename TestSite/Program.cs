@@ -1,8 +1,11 @@
+using Mole.StorageProviders.AzureBlob.TemporaryFile.DependencyInjection;
+
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.CreateUmbracoBuilder()
     .AddBackOffice()
     .AddWebsite()
+    .AddBlobTemporaryFile()
     .AddComposers()
     .Build();
 

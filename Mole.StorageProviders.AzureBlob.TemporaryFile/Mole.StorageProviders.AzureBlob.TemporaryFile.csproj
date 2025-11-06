@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.26.0" />
     <PackageReference Include="Umbraco.Cms.Core" Version="17.0.0-rc1" />
   </ItemGroup>
 
