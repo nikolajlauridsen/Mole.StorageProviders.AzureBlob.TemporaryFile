@@ -19,9 +19,7 @@ jobs:
       
       - name: Pack
         run: |
-          dotnet pack Mole.StorageProviders.AzureBlob.TemporaryFile/Mole.StorageProviders.AzureBlob.TemporaryFile.csproj \
-          -c Release \ 
-          -o Build.Out
+          dotnet pack Mole.StorageProviders.AzureBlob.TemporaryFile/Mole.StorageProviders.AzureBlob.TemporaryFile.csproj -c Release -o Build.Out
       
       - name: Publish NuGet package
         run: dotnet nuget push Build.Out/*.nupkg --api-key ${{ secrets.NUGET_KEY }}
