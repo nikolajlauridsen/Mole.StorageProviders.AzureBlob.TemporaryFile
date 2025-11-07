@@ -2,7 +2,6 @@ name: release
 
 on:
   push:
-    branches: [main]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
 
@@ -19,8 +18,8 @@ jobs:
           dotnet-quality: 'preview'
       
       - name: Pack
-        run: | 
-          dotnet pack Mole.StorageProviders.AzureBlob.TemporaryFile \
+        run: |
+          dotnet pack Mole.StorageProviders.AzureBlob.TemporaryFile\Mole.StorageProviders.AzureBlob.TemporaryFile.csproj \
           -c Release \ 
           -o Build.Out
       
