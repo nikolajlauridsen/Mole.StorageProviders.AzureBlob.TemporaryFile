@@ -1,10 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
+  
+  <PropertyGroup>
+      <Title>Azure Blob Storage Provider for Umbraco Temporary Files</Title>
+      <Description>Azure Blob Storage provider for Umbraco temporary files. Offloads temporary file storage during media uploads and other operations to Azure Blob Storage.</Description>
+      <Authors>Nikolaj E. Lauridsen</Authors>
+      <IsPackable>true</IsPackable>
+      <PackageLicenseExpression>MIT</PackageLicenseExpression>
+      <PackageTags>umbraco;umbraco-marketplace</PackageTags>
+      <NeutralLanguage>en-US</NeutralLanguage>
+      <PackageProjectUrl>https://github.com/nikolajlauridsen/Mole.StorageProviders.AzureBlob.TemporaryFile</PackageProjectUrl>
+  </PropertyGroup>    
+    
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <WarningsAsErrors>Nullable</WarningsAsErrors>  
+    <WarningsAsErrors>Nullable</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
