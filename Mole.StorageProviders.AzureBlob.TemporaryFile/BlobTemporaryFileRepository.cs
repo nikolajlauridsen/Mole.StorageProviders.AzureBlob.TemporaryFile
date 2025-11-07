@@ -144,8 +144,8 @@ public class BlobTemporaryFileRepository(
         var deleteTasks = new List<Task>();
         foreach (var key in keysToDelete)
         {
-           deleteTasks.Add(container.DeleteBlobIfExistsAsync(key.ToString()));
-           deleteTasks.Add(container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key)));
+           deleteTasks.Add(container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots));
+           deleteTasks.Add(container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key), DeleteSnapshotsOption.IncludeSnapshots));
         }
         Task.WaitAll(deleteTasks);
 
