@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{5DDFFE4B-0F55-43C3-84F8-0F6BCDA3E43C}"
 	ProjectSection(SolutionItems) = preProject
 		umbraco-marketplace.json = umbraco-marketplace.json
+		.github\workflows\ci.yaml = .github\workflows\ci.yaml
 	EndProjectSection
 EndProject
 Global

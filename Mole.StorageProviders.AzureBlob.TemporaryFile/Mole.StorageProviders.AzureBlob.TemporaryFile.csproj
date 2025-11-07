@@ -9,6 +9,8 @@
       <PackageTags>umbraco;umbraco-marketplace</PackageTags>
       <NeutralLanguage>en-US</NeutralLanguage>
       <PackageProjectUrl>https://github.com/nikolajlauridsen/Mole.StorageProviders.AzureBlob.TemporaryFile</PackageProjectUrl>
+      <Version>17.0.0-rc1</Version>
+      <RepositoryUrl>https://github.com/nikolajlauridsen/Mole.StorageProviders.AzureBlob.TemporaryFile</RepositoryUrl>
   </PropertyGroup>    
     
   <PropertyGroup>
