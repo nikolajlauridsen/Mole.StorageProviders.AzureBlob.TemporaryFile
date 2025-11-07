@@ -7,6 +7,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mole.StorageProviders.Azure
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestSite", "TestSite\TestSite.csproj", "{F46DBE4A-93F4-4D1E-8287-AA2CEC629E88}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{5DDFFE4B-0F55-43C3-84F8-0F6BCDA3E43C}"
+	ProjectSection(SolutionItems) = preProject
+		umbraco-marketplace.json = umbraco-marketplace.json
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
