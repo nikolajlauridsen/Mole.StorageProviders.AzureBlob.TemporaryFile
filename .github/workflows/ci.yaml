@@ -19,7 +19,7 @@ jobs:
       
       - name: Pack
         run: |
-          dotnet pack Mole.StorageProviders.AzureBlob.TemporaryFile\Mole.StorageProviders.AzureBlob.TemporaryFile.csproj \
+          dotnet pack Mole.StorageProviders.AzureBlob.TemporaryFile/Mole.StorageProviders.AzureBlob.TemporaryFile.csproj \
           -c Release \ 
           -o Build.Out
       
