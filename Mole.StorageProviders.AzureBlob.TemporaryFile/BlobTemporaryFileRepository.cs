@@ -11,29 +11,18 @@ using Umbraco.Cms.Core.Serialization;
 
 namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
 
-public class BlobTemporaryFileRepository : ITemporaryFileRepository
+public class BlobTemporaryFileRepository(
+    ITemporaryBlobClientFactory clientFactory,
+    IOptions<TemporaryFileSettings> fileSettings,
+    IJsonSerializer jsonSerializer)
+    : ITemporaryFileRepository
 {
-    private readonly ITemporaryBlobClientFactory _clientFactory;
-    private readonly IJsonSerializer _jsonSerializer;
-    private readonly ILogger<BlobTemporaryFileRepository> _logger;
-    private readonly TemporaryFileSettings _settings;
-
-    public BlobTemporaryFileRepository(
-        ITemporaryBlobClientFactory clientFactory,
-        IOptions<TemporaryFileSettings> fileSettings,
-        IJsonSerializer jsonSerializer,
-        ILogger<BlobTemporaryFileRepository> logger)
-    {
-        _clientFactory = clientFactory;
-        _jsonSerializer = jsonSerializer;
-        _logger = logger;
-        _settings = fileSettings.Value;
-    }
+    private readonly TemporaryFileSettings _settings = fileSettings.Value;
 
     private async Task<BlobContainerClient> GetContainerAsync()
     {
         // TODO: Can I pin this? Or do I have to recreate on every upload.
-        var serviceClient = _clientFactory.GetBlobServiceClient();
+        var serviceClient = clientFactory.GetBlobServiceClient();
 
         var container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
         await container.CreateIfNotExistsAsync();
@@ -67,7 +56,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         }
 
         using var streamReader = new StreamReader(metaDataResponse.Value.Content);
-        return _jsonSerializer.Deserialize<MetaDataFile>(await streamReader.ReadToEndAsync());
+        return jsonSerializer.Deserialize<MetaDataFile>(await streamReader.ReadToEndAsync());
     }
 
     public async Task<TemporaryFileModel?> GetAsync(Guid key)
@@ -90,7 +79,6 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
             return null;
         }
 
-        
         return new TemporaryFileModel
         {
             AvailableUntil = metadata.AvailableUntil,
@@ -111,7 +99,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         var container = await GetContainerAsync();
         // Create and upload metadata file so we have a chance to find our temp file again
         var temporaryFileModel = CreateMetaDataFile(model);
-        var metaData = new BinaryData(_jsonSerializer.Serialize(temporaryFileModel));
+        var metaData = new BinaryData(jsonSerializer.Serialize(temporaryFileModel));
         var filename = GetMetaDataFileName(model.Key);
         await container.UploadBlobAsync(filename, metaData);
         
@@ -130,7 +118,6 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
     public async Task<IEnumerable<Guid>> CleanUpOldTempFiles(DateTime now)
     {
-        _logger.LogInformation("Running cleanup.");
         var container = await GetContainerAsync();
         List<Guid> keysToDelete = new();
         
@@ -149,7 +136,6 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
             }
         }
 
-        _logger.LogInformation("Found {0} keys to delete.", keysToDelete.Count);
         if (keysToDelete.Count == 0)
         {
             return [];
@@ -163,8 +149,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
            deleteTasks.Add(container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key)));
         }
         Task.WaitAll(deleteTasks);
-        
-        _logger.LogInformation("Cleanup complete.");
+
         return keysToDelete;
     }
 }
