@@ -2,5 +2,13 @@
   "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
   "LicenseTypes": ["Free"],
   "PackageType": "Integration",
-  "IssueTrackerUrl": "https://github.com/nikolajlauridsen/Mole.StorageProviders.AzureBlob.TemporaryFile/issues"
+  "IssueTrackerUrl": "https://github.com/nikolajlauridsen/Mole.StorageProviders.AzureBlob.TemporaryFile/issues",
+  "AuthorDetails": {
+    "Name": "Nikolaj E. Lauridsen",
+    "Description": "Nikolaj E. Lauridsen is a senior developer in the CMS group at Umbraco HQ. This package is provided in a personal capacity.",
+    "Url": "https://nikolaj.codes/",
+    "ImageUrl": "https://avatars.githubusercontent.com/u/16456704?v=4"
+  },
+  "Category": "Developer Tools",
+  "Tags": ["azure", "storage provider", "storage", "blob storage", "load balancing", "docker", "containerization"]
 }
