@@ -43,6 +43,10 @@ The `ContainerName` is optional and defaults to `tempfiles`
 
 **Security Note:** For production environments, use Azure Key Vault, Managed Identity, or environment variables instead of storing connection strings in configuration files.
 
+## Versioning
+This package starts at version 17 to align with Umbraco's versioning scheme and other storage provider packages. This makes it easier to identify which version to install based on your Umbraco version. For example, version 17.x is compatible with Umbraco 17.
+
+
 ## How It Works
 
 This package implements Umbraco's `ITemporaryFileStorage` interface, redirecting all temporary file operations to Azure Blob Storage. When files are uploaded through the Umbraco backoffice, they're stored in your configured Azure Blob container instead of the local `~/umbraco/Data/TEMP` folder.
