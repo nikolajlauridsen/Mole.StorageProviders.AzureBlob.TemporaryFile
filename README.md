@@ -49,7 +49,7 @@ This package starts at version 17 to align with Umbraco's versioning scheme and 
 
 ## How It Works
 
-This package implements Umbraco's `ITemporaryFileStorage` interface, redirecting all temporary file operations to Azure Blob Storage. When files are uploaded through the Umbraco backoffice, they're stored in your configured Azure Blob container instead of the local `~/umbraco/Data/TEMP` folder.
+This package implements Umbraco's `ITemporaryFileRepository` interface, redirecting all temporary file operations to Azure Blob Storage. When files are uploaded through the Umbraco backoffice, they're stored in your configured Azure Blob container instead of the local `~/umbraco/Data/TEMP` folder.
 
 ## Requirements
 
