@@ -1,3 +1,4 @@
+using System.Globalization;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
@@ -11,73 +12,62 @@ using Umbraco.Cms.Core.Serialization;
 
 namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
 
-public class BlobTemporaryFileRepository(
-    ITemporaryBlobClientFactory clientFactory,
-    IOptions<TemporaryFileSettings> fileSettings,
-    IJsonSerializer jsonSerializer)
-    : ITemporaryFileRepository
+public class BlobTemporaryFileRepository : ITemporaryFileRepository
 {
-    private readonly TemporaryFileSettings _settings = fileSettings.Value;
+    private readonly ITemporaryBlobClientFactory _clientFactory;
+    private readonly TemporaryFileSettings _settings;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
+    /// </summary>
+    public BlobTemporaryFileRepository(
+        ITemporaryBlobClientFactory clientFactory,
+        IOptions<TemporaryFileSettings> fileSettings)
+    {
+        _clientFactory = clientFactory;
+        _settings = fileSettings.Value;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
+    /// </summary>
+    [Obsolete("Use the constructor without IJsonSerializer. Scheduled for removal in V18.")]
+    public BlobTemporaryFileRepository(
+        ITemporaryBlobClientFactory clientFactory,
+        IOptions<TemporaryFileSettings> fileSettings,
+        IJsonSerializer jsonSerializer)
+        : this(clientFactory, fileSettings)
+    {
+    }
 
     private async Task<BlobContainerClient> GetContainerAsync()
     {
         // TODO: Can I pin this? Or do I have to recreate on every upload.
-        BlobServiceClient serviceClient = clientFactory.GetBlobServiceClient();
+        BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
 
-        BlobContainerClient? container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
+        BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
         await container.CreateIfNotExistsAsync();
         return container;
-    }
-
-    private MetaDataFile CreateMetaDataFile(TemporaryFileModel model) =>
-        new()
-        {
-            FileName = model.FileName,
-            AvailableUntil = model.AvailableUntil,
-            Key = model.Key,
-        };
-
-    private string GetMetaDataFileName(Guid key)
-        => $"{key}{Constants.Constants.MetadaExtension}";
-
-    private async Task<MetaDataFile?> DownloadMetaDataFileAsync(BlobContainerClient container, string blobName)
-    {
-        BlobClient? metaDataClient = container.GetBlobClient(blobName);
-        if ((await metaDataClient.ExistsAsync())?.Value is false)
-        {
-            return null;
-        }
-
-        Response<BlobDownloadInfo>? metaDataResponse = await metaDataClient.DownloadAsync();
-
-        if (metaDataResponse is null)
-        {
-            return null;
-        }
-
-        using StreamReader streamReader = new StreamReader(metaDataResponse.Value.Content);
-        return jsonSerializer.Deserialize<MetaDataFile>(await streamReader.ReadToEndAsync());
     }
 
     public async Task<TemporaryFileModel?> GetAsync(Guid key)
     {
         BlobContainerClient container = await GetContainerAsync();
-        
-        // First we need to get metadata
-        MetaDataFile? metadata = await DownloadMetaDataFileAsync(container, GetMetaDataFileName(key));
-        if (metadata is null)
-        {
-            return null;
-        }
-        
-        // Now the actual file
-        BlobClient? fileClient = container.GetBlobClient(key.ToString());
-        Response<BlobDownloadInfo>? fileResponse = await fileClient.DownloadAsync();
+        BlobClient blobClient = container.GetBlobClient(key.ToString());
 
-        if (fileResponse is null)
+        BlobProperties properties;
+        Response<BlobDownloadInfo> fileResponse;
+        try
+        {
+            properties = (await blobClient.GetPropertiesAsync()).Value;
+            fileResponse = await blobClient.DownloadAsync();
+        }
+        catch (RequestFailedException exception) when (exception.Status == 404)
         {
             return null;
         }
+
+        MetaDataFile metadata = MetaDataFile.FromDictionary(properties.Metadata);
 
         return new TemporaryFileModel
         {
@@ -89,6 +79,7 @@ public class BlobTemporaryFileRepository(
                 // The CMS uses methods not supported by the Stream returned by azure, so we copy to a memory stream.
                 MemoryStream stream = new MemoryStream();
                 fileResponse.Value.Content.CopyTo(stream);
+                stream.Seek(0, SeekOrigin.Begin);
                 return stream;
             }
         };
@@ -97,42 +88,39 @@ public class BlobTemporaryFileRepository(
     public async Task SaveAsync(TemporaryFileModel model)
     {
         BlobContainerClient container = await GetContainerAsync();
-        // Create and upload metadata file so we have a chance to find our temp file again
-        MetaDataFile temporaryFileModel = CreateMetaDataFile(model);
-        BinaryData metaData = new BinaryData(jsonSerializer.Serialize(temporaryFileModel));
-        string filename = GetMetaDataFileName(model.Key);
-        await container.UploadBlobAsync(filename, metaData);
-        
-        // Now upload the actual file content
+        BlobClient blobClient = container.GetBlobClient(model.Key.ToString());
+
+        var options = new BlobUploadOptions
+        {
+            Metadata = new Dictionary<string, string>
+            {
+                [Constants.Metadata.FileName] = model.FileName,
+                [Constants.Metadata.Key] = model.Key.ToString(),
+                [Constants.Metadata.AvailableUntil] = model.AvailableUntil.ToString("O")
+            }
+        };
+
         await using Stream readStream = model.OpenReadStream();
-        await container.UploadBlobAsync(model.Key.ToString(),  readStream);
+        await blobClient.UploadAsync(readStream, options);
     }
 
     public async Task DeleteAsync(Guid key)
     {
         BlobContainerClient container = await GetContainerAsync();
-
         await container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots);
-        await container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key), DeleteSnapshotsOption.IncludeSnapshots);
     }
 
     public async Task<IEnumerable<Guid>> CleanUpOldTempFiles(DateTime now)
     {
         BlobContainerClient container = await GetContainerAsync();
-        List<Guid> keysToDelete = new();
-        
-        // Find all metadata files and check for expired files
-        await foreach (BlobItem blob in container.GetBlobsAsync().Where(x => x.Name.EndsWith(Constants.Constants.MetadaExtension)))
-        {
-            MetaDataFile? metaData = await DownloadMetaDataFileAsync(container, blob.Name);
-            if (metaData is null)
-            {
-                continue;
-            }
+        List<Guid> keysToDelete = [];
 
-            if (metaData.AvailableUntil < now)
+        await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata))
+        {
+            if (blob.Metadata.TryGetValue(Constants.Metadata.AvailableUntil, out string? availableUntilString)
+                && DateTime.Parse(availableUntilString, null, DateTimeStyles.RoundtripKind) < now)
             {
-                keysToDelete.Add(metaData.Key);
+                keysToDelete.Add(Guid.Parse(blob.Name));
             }
         }
 
@@ -141,14 +129,13 @@ public class BlobTemporaryFileRepository(
             return [];
         }
 
-        // Might as well do it actually async
-        List<Task> deleteTasks = new List<Task>();
+        List<Task> deleteTasks = [];
         foreach (Guid key in keysToDelete)
         {
-           deleteTasks.Add(container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots));
-           deleteTasks.Add(container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key), DeleteSnapshotsOption.IncludeSnapshots));
+            deleteTasks.Add(container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots));
         }
-        Task.WaitAll(deleteTasks);
+
+        await Task.WhenAll(deleteTasks);
 
         return keysToDelete;
     }

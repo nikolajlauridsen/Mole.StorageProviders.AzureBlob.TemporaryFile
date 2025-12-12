@@ -85,6 +85,7 @@ Releases triggered by pushing tags matching `v[0-9]+.[0-9]+.[0-9]+*`. Pipeline p
 - Async methods: `*Async` suffix
 - Interfaces: `I` prefix
 - Constants: `PascalCase`
+- No abbreviations in variable names (use `availableUntilString` not `availableUntilStr`)
 
 **Nullability**
 - Nullable enabled with warnings as errors

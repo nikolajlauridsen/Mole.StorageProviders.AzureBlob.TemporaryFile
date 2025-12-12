@@ -1,10 +1,20 @@
+using System.Globalization;
+
 namespace Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
 
 public class MetaDataFile
 {
-    public required string FileName { get; set; }
-    
-    public required Guid Key { get; set; }
-    
-    public required DateTime AvailableUntil { get; set; }
+    public required string FileName { get; init; }
+
+    public required Guid Key { get; init; }
+
+    public required DateTime AvailableUntil { get; init; }
+
+    public static MetaDataFile FromDictionary(IDictionary<string, string> metadata) =>
+        new()
+        {
+            FileName = metadata[Constants.Metadata.FileName],
+            Key = Guid.Parse(metadata[Constants.Metadata.Key]),
+            AvailableUntil = DateTime.Parse(metadata[Constants.Metadata.AvailableUntil], null, DateTimeStyles.RoundtripKind)
+        };
 }
