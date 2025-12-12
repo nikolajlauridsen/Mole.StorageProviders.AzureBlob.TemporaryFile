@@ -12,6 +12,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{5DDFFE4B
 		umbraco-marketplace.json = umbraco-marketplace.json
 		.github\workflows\ci.yaml = .github\workflows\ci.yaml
 		README.md = README.md
+		CLAUDE.md = CLAUDE.md
 	EndProjectSection
 EndProject
 Global
