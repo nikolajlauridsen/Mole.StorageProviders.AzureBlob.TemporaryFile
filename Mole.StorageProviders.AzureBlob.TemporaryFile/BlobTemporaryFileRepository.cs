@@ -20,6 +20,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
     private readonly ITemporaryBlobClientFactory _clientFactory;
     private readonly ILogger<BlobTemporaryFileRepository> _logger;
     private readonly TemporaryFileSettings _settings;
+    private BlobContainerClient? _containerClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
@@ -51,11 +52,16 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
     private async Task<BlobContainerClient> GetContainerAsync()
     {
-        // TODO: Can I pin this? Or do I have to recreate on every upload.
-        BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
+        if (_containerClient is not null)
+        {
+            return _containerClient;
+        }
 
+        BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
         BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
         await container.CreateIfNotExistsAsync();
+
+        _containerClient = container;
         return container;
     }
 
