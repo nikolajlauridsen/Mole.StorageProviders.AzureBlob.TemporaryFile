@@ -74,9 +74,9 @@ public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
 
         using StreamReader reader = new(sidecarResponse.Value.Content);
         var json = await reader.ReadToEndAsync();
-        var metaData = _jsonSerializer.Deserialize<SidecarMetaData>(json);
+        var metadata = _jsonSerializer.Deserialize<SidecarMetaData>(json);
 
-        if (metaData is null)
+        if (metadata is null)
         {
             _logger.LogWarning("Failed to deserialize sidecar metadata from {SidecarBlobName}", sidecarBlobName);
             return;
@@ -93,9 +93,9 @@ public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
 
         var blobMetadata = new Dictionary<string, string>
         {
-            [Constants.Constants.Metadata.FileName] = metaData.FileName,
-            [Constants.Constants.Metadata.Key] = metaData.Key.ToString(),
-            [Constants.Constants.Metadata.AvailableUntil] = metaData.AvailableUntil.ToRoundtripString()
+            [Constants.Constants.Metadata.FileName] = metadata.FileName,
+            [Constants.Constants.Metadata.Key] = metadata.Key.ToString(),
+            [Constants.Constants.Metadata.AvailableUntil] = metadata.AvailableUntil.ToRoundtripString()
         };
 
         await contentClient.SetMetadataAsync(blobMetadata);
