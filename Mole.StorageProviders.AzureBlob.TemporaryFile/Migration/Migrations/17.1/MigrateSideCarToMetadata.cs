@@ -30,7 +30,7 @@ public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
         MediaFileManager mediaFileManager,
         MediaUrlGeneratorCollection mediaUrlGenerators,
         IShortStringHelper shortStringHelper,
-        ContentTypeBaseServiceProvider contentTypeBaseServiceProvider,
+        IContentTypeBaseServiceProvider contentTypeBaseServiceProvider,
         IMigrationContext context,
         IOptions<PackageMigrationSettings> packageMigrationsSettings,
         ITemporaryBlobClientFactory clientFactory,
