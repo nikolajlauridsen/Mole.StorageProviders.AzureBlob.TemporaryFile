@@ -65,8 +65,14 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
             return null;
         }
 
-        MetaDataFile metadata = MetaDataFile.FromDictionary(fileResponse.Value.Details.Metadata);
+        IDictionary<string, string>? metadataDictionary = fileResponse.Value.Details.Metadata;
+        if (metadataDictionary == null || metadataDictionary.Count == 0)
+        {
+            // If metadata is missing or empty, treat the blob as unusable (e.g., older or corrupted blob).
+            return null;
+        }
 
+        MetaDataFile metadata = MetaDataFile.FromDictionary(metadataDictionary);
         return new TemporaryFileModel
         {
             AvailableUntil = metadata.AvailableUntil,
