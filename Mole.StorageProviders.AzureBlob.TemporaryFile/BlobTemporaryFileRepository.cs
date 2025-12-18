@@ -55,11 +55,9 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         BlobContainerClient container = await GetContainerAsync();
         BlobClient blobClient = container.GetBlobClient(key.ToString());
 
-        BlobProperties properties;
         Response<BlobDownloadInfo> fileResponse;
         try
         {
-            properties = (await blobClient.GetPropertiesAsync()).Value;
             fileResponse = await blobClient.DownloadAsync();
         }
         catch (RequestFailedException exception) when (exception.Status == 404)
@@ -67,7 +65,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
             return null;
         }
 
-        MetaDataFile metadata = MetaDataFile.FromDictionary(properties.Metadata);
+        MetaDataFile metadata = MetaDataFile.FromDictionary(fileResponse.Value.Details.Metadata);
 
         return new TemporaryFileModel
         {
@@ -128,7 +126,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         {
             return [];
         }
-
+        
         List<Task> deleteTasks = [];
         foreach (Guid key in keysToDelete)
         {
