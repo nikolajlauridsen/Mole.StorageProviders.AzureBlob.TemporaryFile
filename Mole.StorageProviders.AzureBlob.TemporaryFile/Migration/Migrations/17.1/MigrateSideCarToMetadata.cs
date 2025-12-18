@@ -2,6 +2,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Mole.StorageProviders.AzureBlob.TemporaryFile.Extensions;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Factories;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Settings;
 using Umbraco.Cms.Core.Configuration.Models;
@@ -94,7 +95,7 @@ public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
         {
             [Constants.Metadata.FileName] = metaData.FileName,
             [Constants.Metadata.Key] = metaData.Key.ToString(),
-            [Constants.Metadata.AvailableUntil] = metaData.AvailableUntil.ToString("O")
+            [Constants.Metadata.AvailableUntil] = metaData.AvailableUntil.ToRoundtripString()
         };
 
         await contentClient.SetMetadataAsync(blobMetadata);

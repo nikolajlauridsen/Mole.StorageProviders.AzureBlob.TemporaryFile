@@ -1,8 +1,8 @@
-using System.Globalization;
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
+using Mole.StorageProviders.AzureBlob.TemporaryFile.Extensions;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Factories;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Settings;
@@ -94,7 +94,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
             {
                 [Constants.Metadata.FileName] = model.FileName,
                 [Constants.Metadata.Key] = model.Key.ToString(),
-                [Constants.Metadata.AvailableUntil] = model.AvailableUntil.ToString("O")
+                [Constants.Metadata.AvailableUntil] = model.AvailableUntil.ToRoundtripString()
             }
         };
 
@@ -116,7 +116,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata))
         {
             if (blob.Metadata.TryGetValue(Constants.Metadata.AvailableUntil, out string? availableUntilString)
-                && DateTime.Parse(availableUntilString, null, DateTimeStyles.RoundtripKind) < now)
+                && availableUntilString.ToRoundtripDateTime() < now)
             {
                 keysToDelete.Add(Guid.Parse(blob.Name));
             }

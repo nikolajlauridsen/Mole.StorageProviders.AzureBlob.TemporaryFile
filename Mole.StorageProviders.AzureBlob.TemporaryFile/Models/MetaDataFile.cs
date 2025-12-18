@@ -1,4 +1,4 @@
-using System.Globalization;
+using Mole.StorageProviders.AzureBlob.TemporaryFile.Extensions;
 
 namespace Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
 
@@ -15,6 +15,6 @@ public class MetaDataFile
         {
             FileName = metadata[Constants.Metadata.FileName],
             Key = Guid.Parse(metadata[Constants.Metadata.Key]),
-            AvailableUntil = DateTime.Parse(metadata[Constants.Metadata.AvailableUntil], null, DateTimeStyles.RoundtripKind)
+            AvailableUntil = metadata[Constants.Metadata.AvailableUntil].ToRoundtripDateTime()
         };
 }
