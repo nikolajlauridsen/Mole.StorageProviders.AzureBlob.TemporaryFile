@@ -11,6 +11,7 @@ public class TemporaryFilePackageMigrationPlan : PackageMigrationPlan
 
     protected override void DefinePlan()
     {
+        // TO 17.1
         To<MigrateSideCarToMetadata>(new Guid("6B75CF8F-AAEC-4BCD-9E9E-97D9D17A92B5"));
     }
 }
