@@ -16,6 +16,19 @@ using Umbraco.Cms.Infrastructure.Packaging;
 
 namespace Mole.StorageProviders.AzureBlob.TemporaryFile.Migration.Migrations._17._1;
 
+/// <summary>
+/// Migration that converts legacy sidecar metadata blob files into blob metadata entries
+/// for temporary files stored in the configured Azure Blob container.
+/// </summary>
+/// <remarks>
+/// This migration runs as part of the package migration pipeline and enumerates all blobs
+/// in the temporary file container, locating sidecar blobs whose names end with
+/// <c>.metadata</c>. For each sidecar file found, it moves the contained information into
+/// the corresponding blob's metadata and removes or deprecates the old sidecar representation.
+/// If the migration fails partway through, any blobs that have already been processed remain
+/// in the new metadata-based format, while unprocessed blobs continue to use the old sidecar
+/// files. The migration can be safely re-run to complete processing of any remaining blobs.
+/// </remarks>
 public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
 {
     private const string MetadataExtension = ".metadata";
