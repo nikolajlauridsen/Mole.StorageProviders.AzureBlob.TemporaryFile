@@ -1,11 +1,14 @@
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Extensions;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Factories;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Settings;
+using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Models.TemporaryFile;
 using Umbraco.Cms.Core.Persistence.Repositories;
 using Umbraco.Cms.Core.Serialization;
@@ -15,6 +18,7 @@ namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
 public class BlobTemporaryFileRepository : ITemporaryFileRepository
 {
     private readonly ITemporaryBlobClientFactory _clientFactory;
+    private readonly ILogger<BlobTemporaryFileRepository> _logger;
     private readonly TemporaryFileSettings _settings;
 
     /// <summary>
@@ -22,9 +26,11 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
     /// </summary>
     public BlobTemporaryFileRepository(
         ITemporaryBlobClientFactory clientFactory,
-        IOptions<TemporaryFileSettings> fileSettings)
+        IOptions<TemporaryFileSettings> fileSettings,
+        ILogger<BlobTemporaryFileRepository> logger)
     {
         _clientFactory = clientFactory;
+        _logger = logger;
         _settings = fileSettings.Value;
     }
 
@@ -36,7 +42,10 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         ITemporaryBlobClientFactory clientFactory,
         IOptions<TemporaryFileSettings> fileSettings,
         IJsonSerializer jsonSerializer)
-        : this(clientFactory, fileSettings)
+        : this(
+            clientFactory,
+            fileSettings,
+            StaticServiceProvider.Instance.GetRequiredService<ILogger<BlobTemporaryFileRepository>>())
     {
     }
 
@@ -121,10 +130,20 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
         await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata))
         {
-            if (blob.Metadata.TryGetValue(Constants.Constants.Metadata.AvailableUntil, out string? availableUntilString)
-                && availableUntilString.ToRoundtripDateTime() < now)
+            MetaDataFile metadata;
+            try
             {
-                keysToDelete.Add(Guid.Parse(blob.Name));
+                metadata = MetaDataFile.FromDictionary(blob.Metadata);
+            }
+            catch (InvalidOperationException exception)
+            {
+                _logger.LogError(exception, "Blob {BlobName} is missing required metadata, skipping cleanup...", blob.Name);
+                continue;
+            }
+
+            if (metadata.AvailableUntil < now)
+            {
+                keysToDelete.Add(metadata.Key);
             }
         }
 
