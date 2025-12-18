@@ -4,11 +4,11 @@ namespace Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
 
 public class MetaDataFile
 {
-    public required string FileName { get; init; }
+    public required string FileName { get; set; }
 
-    public required Guid Key { get; init; }
+    public required Guid Key { get; set; }
 
-    public required DateTime AvailableUntil { get; init; }
+    public required DateTime AvailableUntil { get; set; }
 
     public static MetaDataFile FromDictionary(IDictionary<string, string> metadata) =>
         new()
