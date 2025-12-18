@@ -1,4 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Factories;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Settings;
 using Umbraco.Cms.Core.DependencyInjection;
@@ -12,7 +14,11 @@ public static class UmbracoBuilderExtensions
     {
         builder.AddConfiguration();
         builder.Services.AddSingleton<ITemporaryBlobClientFactory, TemporaryBlobClientFactory>();
-        builder.Services.AddSingleton<ITemporaryFileRepository, BlobTemporaryFileRepository>();
+        builder.Services.AddSingleton<ITemporaryFileRepository, BlobTemporaryFileRepository>(factory => new BlobTemporaryFileRepository(
+            factory.GetRequiredService<ITemporaryBlobClientFactory>(),
+            factory.GetRequiredService<IOptions<TemporaryFileSettings>>(),
+            factory.GetRequiredService<ILogger<BlobTemporaryFileRepository>>()
+        ));
         return builder;
     }
     

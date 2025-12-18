@@ -1,84 +1,87 @@
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Mole.StorageProviders.AzureBlob.TemporaryFile.Extensions;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Factories;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Settings;
+using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Models.TemporaryFile;
 using Umbraco.Cms.Core.Persistence.Repositories;
 using Umbraco.Cms.Core.Serialization;
 
 namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
 
-public class BlobTemporaryFileRepository(
-    ITemporaryBlobClientFactory clientFactory,
-    IOptions<TemporaryFileSettings> fileSettings,
-    IJsonSerializer jsonSerializer)
-    : ITemporaryFileRepository
+public class BlobTemporaryFileRepository : ITemporaryFileRepository
 {
-    private readonly TemporaryFileSettings _settings = fileSettings.Value;
+    private readonly ITemporaryBlobClientFactory _clientFactory;
+    private readonly ILogger<BlobTemporaryFileRepository> _logger;
+    private readonly TemporaryFileSettings _settings;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
+    /// </summary>
+    public BlobTemporaryFileRepository(
+        ITemporaryBlobClientFactory clientFactory,
+        IOptions<TemporaryFileSettings> fileSettings,
+        ILogger<BlobTemporaryFileRepository> logger)
+    {
+        _clientFactory = clientFactory;
+        _logger = logger;
+        _settings = fileSettings.Value;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
+    /// </summary>
+    [Obsolete("Use the constructor without IJsonSerializer. Scheduled for removal in V18.")]
+    public BlobTemporaryFileRepository(
+        ITemporaryBlobClientFactory clientFactory,
+        IOptions<TemporaryFileSettings> fileSettings,
+        IJsonSerializer jsonSerializer)
+        : this(
+            clientFactory,
+            fileSettings,
+            StaticServiceProvider.Instance.GetRequiredService<ILogger<BlobTemporaryFileRepository>>())
+    {
+    }
 
     private async Task<BlobContainerClient> GetContainerAsync()
     {
         // TODO: Can I pin this? Or do I have to recreate on every upload.
-        BlobServiceClient serviceClient = clientFactory.GetBlobServiceClient();
+        BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
 
-        BlobContainerClient? container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
+        BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
         await container.CreateIfNotExistsAsync();
         return container;
-    }
-
-    private MetaDataFile CreateMetaDataFile(TemporaryFileModel model) =>
-        new()
-        {
-            FileName = model.FileName,
-            AvailableUntil = model.AvailableUntil,
-            Key = model.Key,
-        };
-
-    private string GetMetaDataFileName(Guid key)
-        => $"{key}{Constants.Constants.MetadaExtension}";
-
-    private async Task<MetaDataFile?> DownloadMetaDataFileAsync(BlobContainerClient container, string blobName)
-    {
-        BlobClient? metaDataClient = container.GetBlobClient(blobName);
-        if ((await metaDataClient.ExistsAsync())?.Value is false)
-        {
-            return null;
-        }
-
-        Response<BlobDownloadInfo>? metaDataResponse = await metaDataClient.DownloadAsync();
-
-        if (metaDataResponse is null)
-        {
-            return null;
-        }
-
-        using StreamReader streamReader = new StreamReader(metaDataResponse.Value.Content);
-        return jsonSerializer.Deserialize<MetaDataFile>(await streamReader.ReadToEndAsync());
     }
 
     public async Task<TemporaryFileModel?> GetAsync(Guid key)
     {
         BlobContainerClient container = await GetContainerAsync();
-        
-        // First we need to get metadata
-        MetaDataFile? metadata = await DownloadMetaDataFileAsync(container, GetMetaDataFileName(key));
-        if (metadata is null)
-        {
-            return null;
-        }
-        
-        // Now the actual file
-        BlobClient? fileClient = container.GetBlobClient(key.ToString());
-        Response<BlobDownloadInfo>? fileResponse = await fileClient.DownloadAsync();
+        BlobClient blobClient = container.GetBlobClient(key.ToString());
 
-        if (fileResponse is null)
+        Response<BlobDownloadInfo> fileResponse;
+        try
+        {
+            fileResponse = await blobClient.DownloadAsync();
+        }
+        catch (RequestFailedException exception) when (exception.Status == 404)
         {
             return null;
         }
 
+        IDictionary<string, string>? metadataDictionary = fileResponse.Value.Details.Metadata;
+        if (metadataDictionary == null || metadataDictionary.Count == 0)
+        {
+            // If metadata is missing or empty, treat the blob as unusable (e.g., older or corrupted blob).
+            return null;
+        }
+
+        MetaDataFile metadata = MetaDataFile.FromDictionary(metadataDictionary);
         return new TemporaryFileModel
         {
             AvailableUntil = metadata.AvailableUntil,
@@ -89,6 +92,7 @@ public class BlobTemporaryFileRepository(
                 // The CMS uses methods not supported by the Stream returned by azure, so we copy to a memory stream.
                 MemoryStream stream = new MemoryStream();
                 fileResponse.Value.Content.CopyTo(stream);
+                stream.Seek(0, SeekOrigin.Begin);
                 return stream;
             }
         };
@@ -97,42 +101,49 @@ public class BlobTemporaryFileRepository(
     public async Task SaveAsync(TemporaryFileModel model)
     {
         BlobContainerClient container = await GetContainerAsync();
-        // Create and upload metadata file so we have a chance to find our temp file again
-        MetaDataFile temporaryFileModel = CreateMetaDataFile(model);
-        BinaryData metaData = new BinaryData(jsonSerializer.Serialize(temporaryFileModel));
-        string filename = GetMetaDataFileName(model.Key);
-        await container.UploadBlobAsync(filename, metaData);
-        
-        // Now upload the actual file content
+        BlobClient blobClient = container.GetBlobClient(model.Key.ToString());
+
+        var options = new BlobUploadOptions
+        {
+            Metadata = new Dictionary<string, string>
+            {
+                [Constants.Constants.Metadata.FileName] = model.FileName,
+                [Constants.Constants.Metadata.Key] = model.Key.ToString(),
+                [Constants.Constants.Metadata.AvailableUntil] = model.AvailableUntil.ToRoundtripString()
+            }
+        };
+
         await using Stream readStream = model.OpenReadStream();
-        await container.UploadBlobAsync(model.Key.ToString(),  readStream);
+        await blobClient.UploadAsync(readStream, options);
     }
 
     public async Task DeleteAsync(Guid key)
     {
         BlobContainerClient container = await GetContainerAsync();
-
         await container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots);
-        await container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key), DeleteSnapshotsOption.IncludeSnapshots);
     }
 
     public async Task<IEnumerable<Guid>> CleanUpOldTempFiles(DateTime now)
     {
         BlobContainerClient container = await GetContainerAsync();
-        List<Guid> keysToDelete = new();
-        
-        // Find all metadata files and check for expired files
-        await foreach (BlobItem blob in container.GetBlobsAsync().Where(x => x.Name.EndsWith(Constants.Constants.MetadaExtension)))
+        List<Guid> keysToDelete = [];
+
+        await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata))
         {
-            MetaDataFile? metaData = await DownloadMetaDataFileAsync(container, blob.Name);
-            if (metaData is null)
+            MetaDataFile metadata;
+            try
             {
+                metadata = MetaDataFile.FromDictionary(blob.Metadata);
+            }
+            catch (InvalidOperationException exception)
+            {
+                _logger.LogError(exception, "Blob {BlobName} is missing required metadata, skipping cleanup...", blob.Name);
                 continue;
             }
 
-            if (metaData.AvailableUntil < now)
+            if (metadata.AvailableUntil < now)
             {
-                keysToDelete.Add(metaData.Key);
+                keysToDelete.Add(metadata.Key);
             }
         }
 
@@ -140,15 +151,14 @@ public class BlobTemporaryFileRepository(
         {
             return [];
         }
-
-        // Might as well do it actually async
-        List<Task> deleteTasks = new List<Task>();
+        
+        List<Task> deleteTasks = [];
         foreach (Guid key in keysToDelete)
         {
-           deleteTasks.Add(container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots));
-           deleteTasks.Add(container.DeleteBlobIfExistsAsync(GetMetaDataFileName(key), DeleteSnapshotsOption.IncludeSnapshots));
+            deleteTasks.Add(container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots));
         }
-        Task.WaitAll(deleteTasks);
+
+        await Task.WhenAll(deleteTasks);
 
         return keysToDelete;
     }
