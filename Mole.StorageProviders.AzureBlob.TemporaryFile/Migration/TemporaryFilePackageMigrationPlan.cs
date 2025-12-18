@@ -5,7 +5,7 @@ namespace Mole.StorageProviders.AzureBlob.TemporaryFile.Migration;
 
 public class TemporaryFilePackageMigrationPlan : PackageMigrationPlan
 {
-    public TemporaryFilePackageMigrationPlan() : base(Constants.PackageName)
+    public TemporaryFilePackageMigrationPlan() : base(Constants.Constants.PackageName)
     {
     }
 

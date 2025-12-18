@@ -92,9 +92,9 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         {
             Metadata = new Dictionary<string, string>
             {
-                [Constants.Metadata.FileName] = model.FileName,
-                [Constants.Metadata.Key] = model.Key.ToString(),
-                [Constants.Metadata.AvailableUntil] = model.AvailableUntil.ToRoundtripString()
+                [Constants.Constants.Metadata.FileName] = model.FileName,
+                [Constants.Constants.Metadata.Key] = model.Key.ToString(),
+                [Constants.Constants.Metadata.AvailableUntil] = model.AvailableUntil.ToRoundtripString()
             }
         };
 
@@ -115,7 +115,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
         await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata))
         {
-            if (blob.Metadata.TryGetValue(Constants.Metadata.AvailableUntil, out string? availableUntilString)
+            if (blob.Metadata.TryGetValue(Constants.Constants.Metadata.AvailableUntil, out string? availableUntilString)
                 && availableUntilString.ToRoundtripDateTime() < now)
             {
                 keysToDelete.Add(Guid.Parse(blob.Name));

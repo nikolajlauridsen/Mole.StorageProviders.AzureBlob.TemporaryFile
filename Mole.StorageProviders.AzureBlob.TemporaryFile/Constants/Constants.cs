@@ -1,6 +1,6 @@
 using System.ComponentModel;
 
-namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
+namespace Mole.StorageProviders.AzureBlob.TemporaryFile.Constants;
 
 public static class Constants
 {

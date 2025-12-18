@@ -18,7 +18,7 @@ public static class UmbracoBuilderExtensions
     
     private static IUmbracoBuilder AddConfiguration(this IUmbracoBuilder builder)
     {
-        builder.Services.AddOptions<TemporaryFileSettings>().Bind(builder.Config.GetSection(Constants.SettingsSectionName));
+        builder.Services.AddOptions<TemporaryFileSettings>().Bind(builder.Config.GetSection(Constants.Constants.SettingsSectionName));
         return builder;
     }
 }

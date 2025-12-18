@@ -93,9 +93,9 @@ public class MigrateSideCarToMetadata : AsyncPackageMigrationBase
 
         var blobMetadata = new Dictionary<string, string>
         {
-            [Constants.Metadata.FileName] = metaData.FileName,
-            [Constants.Metadata.Key] = metaData.Key.ToString(),
-            [Constants.Metadata.AvailableUntil] = metaData.AvailableUntil.ToRoundtripString()
+            [Constants.Constants.Metadata.FileName] = metaData.FileName,
+            [Constants.Constants.Metadata.Key] = metaData.Key.ToString(),
+            [Constants.Constants.Metadata.AvailableUntil] = metaData.AvailableUntil.ToRoundtripString()
         };
 
         await contentClient.SetMetadataAsync(blobMetadata);

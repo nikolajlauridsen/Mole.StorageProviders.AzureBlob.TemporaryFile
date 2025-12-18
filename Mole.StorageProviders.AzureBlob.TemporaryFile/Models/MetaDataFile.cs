@@ -13,8 +13,8 @@ public class MetaDataFile
     public static MetaDataFile FromDictionary(IDictionary<string, string> metadata) =>
         new()
         {
-            FileName = metadata[Constants.Metadata.FileName],
-            Key = Guid.Parse(metadata[Constants.Metadata.Key]),
-            AvailableUntil = metadata[Constants.Metadata.AvailableUntil].ToRoundtripDateTime()
+            FileName = metadata[Constants.Constants.Metadata.FileName],
+            Key = Guid.Parse(metadata[Constants.Constants.Metadata.Key]),
+            AvailableUntil = metadata[Constants.Constants.Metadata.AvailableUntil].ToRoundtripDateTime()
         };
 }
