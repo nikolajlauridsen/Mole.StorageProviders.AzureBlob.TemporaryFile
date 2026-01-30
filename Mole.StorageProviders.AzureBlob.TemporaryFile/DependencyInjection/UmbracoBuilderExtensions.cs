@@ -21,6 +21,19 @@ public static class UmbracoBuilderExtensions
         ));
         return builder;
     }
+
+    public static IUmbracoBuilder AddBlobTemporaryFile(this IUmbracoBuilder builder, Action<TemporaryFileSettings> configure)
+    {
+        builder.AddConfiguration();
+        builder.Services.Configure(configure);
+        builder.Services.AddSingleton<ITemporaryBlobClientFactory, TemporaryBlobClientFactory>();
+        builder.Services.AddSingleton<ITemporaryFileRepository, BlobTemporaryFileRepository>(factory => new BlobTemporaryFileRepository(
+            factory.GetRequiredService<ITemporaryBlobClientFactory>(),
+            factory.GetRequiredService<IOptions<TemporaryFileSettings>>(),
+            factory.GetRequiredService<ILogger<BlobTemporaryFileRepository>>()
+        ));
+        return builder;
+    }
     
     private static IUmbracoBuilder AddConfiguration(this IUmbracoBuilder builder)
     {
