@@ -1,17 +1,14 @@
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Extensions;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Factories;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Settings;
-using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Models.TemporaryFile;
 using Umbraco.Cms.Core.Persistence.Repositories;
-using Umbraco.Cms.Core.Serialization;
 
 namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
 
@@ -33,21 +30,6 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         _clientFactory = clientFactory;
         _logger = logger;
         _settings = fileSettings.Value;
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
-    /// </summary>
-    [Obsolete("Use the constructor without IJsonSerializer. Scheduled for removal in V18.")]
-    public BlobTemporaryFileRepository(
-        ITemporaryBlobClientFactory clientFactory,
-        IOptions<TemporaryFileSettings> fileSettings,
-        IJsonSerializer jsonSerializer)
-        : this(
-            clientFactory,
-            fileSettings,
-            StaticServiceProvider.Instance.GetRequiredService<ILogger<BlobTemporaryFileRepository>>())
-    {
     }
 
     private async Task<BlobContainerClient> GetContainerAsync()
