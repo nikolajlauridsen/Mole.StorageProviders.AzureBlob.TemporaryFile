@@ -14,10 +14,8 @@ namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
 
 public class BlobTemporaryFileRepository : ITemporaryFileRepository
 {
-    private readonly ITemporaryBlobClientFactory _clientFactory;
     private readonly ILogger<BlobTemporaryFileRepository> _logger;
-    private readonly TemporaryFileSettings _settings;
-    private BlobContainerClient? _containerClient;
+    private readonly Lazy<Task<BlobContainerClient>> _containerClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
@@ -27,25 +25,19 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         IOptions<TemporaryFileSettings> fileSettings,
         ILogger<BlobTemporaryFileRepository> logger)
     {
-        _clientFactory = clientFactory;
         _logger = logger;
-        _settings = fileSettings.Value;
+        _containerClient = new Lazy<Task<BlobContainerClient>>(() => InitializeContainerAsync(clientFactory, fileSettings.Value));
     }
 
-    private async Task<BlobContainerClient> GetContainerAsync()
+    private static async Task<BlobContainerClient> InitializeContainerAsync(ITemporaryBlobClientFactory clientFactory, TemporaryFileSettings settings)
     {
-        if (_containerClient is not null)
-        {
-            return _containerClient;
-        }
-
-        BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
-        BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
+        BlobServiceClient serviceClient = clientFactory.GetBlobServiceClient();
+        BlobContainerClient container = serviceClient.GetBlobContainerClient(settings.ContainerName);
         await container.CreateIfNotExistsAsync();
-
-        _containerClient = container;
         return container;
     }
+
+    private Task<BlobContainerClient> GetContainerAsync() => _containerClient.Value;
 
     public async Task<TemporaryFileModel?> GetAsync(Guid key)
     {
