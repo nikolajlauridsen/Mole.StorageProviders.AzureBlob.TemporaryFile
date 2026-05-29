@@ -15,7 +15,7 @@ namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
 public class BlobTemporaryFileRepository : ITemporaryFileRepository
 {
     private readonly ILogger<BlobTemporaryFileRepository> _logger;
-    private readonly Lazy<Task<BlobContainerClient>> _containerClient;
+    private readonly Lazy<BlobContainerClient> _containerClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
@@ -26,22 +26,24 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         ILogger<BlobTemporaryFileRepository> logger)
     {
         _logger = logger;
-        _containerClient = new Lazy<Task<BlobContainerClient>>(() => InitializeContainerAsync(clientFactory, fileSettings.Value));
+        _containerClient = new Lazy<BlobContainerClient>(
+            () => InitializeContainer(clientFactory, fileSettings.Value),
+            LazyThreadSafetyMode.PublicationOnly);
     }
 
-    private static async Task<BlobContainerClient> InitializeContainerAsync(ITemporaryBlobClientFactory clientFactory, TemporaryFileSettings settings)
+    private static BlobContainerClient InitializeContainer(ITemporaryBlobClientFactory clientFactory, TemporaryFileSettings settings)
     {
         BlobServiceClient serviceClient = clientFactory.GetBlobServiceClient();
         BlobContainerClient container = serviceClient.GetBlobContainerClient(settings.ContainerName);
-        await container.CreateIfNotExistsAsync();
+        container.CreateIfNotExists();
         return container;
     }
 
-    private Task<BlobContainerClient> GetContainerAsync() => _containerClient.Value;
+    private BlobContainerClient GetContainer() => _containerClient.Value;
 
     public async Task<TemporaryFileModel?> GetAsync(Guid key)
     {
-        BlobContainerClient container = await GetContainerAsync();
+        BlobContainerClient container = GetContainer();
         BlobClient blobClient = container.GetBlobClient(key.ToString());
 
         Response<BlobDownloadInfo> fileResponse;
@@ -80,7 +82,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
     public async Task SaveAsync(TemporaryFileModel model)
     {
-        BlobContainerClient container = await GetContainerAsync();
+        BlobContainerClient container = GetContainer();
         BlobClient blobClient = container.GetBlobClient(model.Key.ToString());
 
         var options = new BlobUploadOptions
@@ -99,13 +101,13 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
     public async Task DeleteAsync(Guid key)
     {
-        BlobContainerClient container = await GetContainerAsync();
+        BlobContainerClient container = GetContainer();
         await container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots);
     }
 
     public async Task<IEnumerable<Guid>> CleanUpOldTempFiles(DateTime now)
     {
-        BlobContainerClient container = await GetContainerAsync();
+        BlobContainerClient container = GetContainer();
         List<Guid> keysToDelete = [];
 
         await foreach (BlobItem blob in container.GetBlobsAsync(new GetBlobsOptions { Traits = BlobTraits.Metadata }))
