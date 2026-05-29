@@ -134,7 +134,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         BlobContainerClient container = await GetContainerAsync();
         List<Guid> keysToDelete = [];
 
-        await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata))
+        await foreach (BlobItem blob in container.GetBlobsAsync(new GetBlobsOptions { Traits = BlobTraits.Metadata }))
         {
             MetaDataFile metadata;
             try
