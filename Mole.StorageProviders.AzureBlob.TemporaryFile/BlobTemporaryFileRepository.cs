@@ -1,26 +1,21 @@
 using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Extensions;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Factories;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Models;
 using Mole.StorageProviders.AzureBlob.TemporaryFile.Settings;
-using Umbraco.Cms.Core.DependencyInjection;
 using Umbraco.Cms.Core.Models.TemporaryFile;
 using Umbraco.Cms.Core.Persistence.Repositories;
-using Umbraco.Cms.Core.Serialization;
 
 namespace Mole.StorageProviders.AzureBlob.TemporaryFile;
 
 public class BlobTemporaryFileRepository : ITemporaryFileRepository
 {
-    private readonly ITemporaryBlobClientFactory _clientFactory;
     private readonly ILogger<BlobTemporaryFileRepository> _logger;
-    private readonly TemporaryFileSettings _settings;
-    private BlobContainerClient? _containerClient;
+    private readonly Lazy<BlobContainerClient> _containerClient;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
@@ -30,44 +25,25 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
         IOptions<TemporaryFileSettings> fileSettings,
         ILogger<BlobTemporaryFileRepository> logger)
     {
-        _clientFactory = clientFactory;
         _logger = logger;
-        _settings = fileSettings.Value;
+        _containerClient = new Lazy<BlobContainerClient>(
+            () => InitializeContainer(clientFactory, fileSettings.Value),
+            LazyThreadSafetyMode.PublicationOnly);
     }
 
-    /// <summary>
-    /// Initializes a new instance of the <see cref="BlobTemporaryFileRepository"/> class.
-    /// </summary>
-    [Obsolete("Use the constructor without IJsonSerializer. Scheduled for removal in V18.")]
-    public BlobTemporaryFileRepository(
-        ITemporaryBlobClientFactory clientFactory,
-        IOptions<TemporaryFileSettings> fileSettings,
-        IJsonSerializer jsonSerializer)
-        : this(
-            clientFactory,
-            fileSettings,
-            StaticServiceProvider.Instance.GetRequiredService<ILogger<BlobTemporaryFileRepository>>())
+    private static BlobContainerClient InitializeContainer(ITemporaryBlobClientFactory clientFactory, TemporaryFileSettings settings)
     {
-    }
-
-    private async Task<BlobContainerClient> GetContainerAsync()
-    {
-        if (_containerClient is not null)
-        {
-            return _containerClient;
-        }
-
-        BlobServiceClient serviceClient = _clientFactory.GetBlobServiceClient();
-        BlobContainerClient container = serviceClient.GetBlobContainerClient(_settings.ContainerName);
-        await container.CreateIfNotExistsAsync();
-
-        _containerClient = container;
+        BlobServiceClient serviceClient = clientFactory.GetBlobServiceClient();
+        BlobContainerClient container = serviceClient.GetBlobContainerClient(settings.ContainerName);
+        container.CreateIfNotExists();
         return container;
     }
 
+    private BlobContainerClient GetContainer() => _containerClient.Value;
+
     public async Task<TemporaryFileModel?> GetAsync(Guid key)
     {
-        BlobContainerClient container = await GetContainerAsync();
+        BlobContainerClient container = GetContainer();
         BlobClient blobClient = container.GetBlobClient(key.ToString());
 
         Response<BlobDownloadInfo> fileResponse;
@@ -106,7 +82,7 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
     public async Task SaveAsync(TemporaryFileModel model)
     {
-        BlobContainerClient container = await GetContainerAsync();
+        BlobContainerClient container = GetContainer();
         BlobClient blobClient = container.GetBlobClient(model.Key.ToString());
 
         var options = new BlobUploadOptions
@@ -125,16 +101,16 @@ public class BlobTemporaryFileRepository : ITemporaryFileRepository
 
     public async Task DeleteAsync(Guid key)
     {
-        BlobContainerClient container = await GetContainerAsync();
+        BlobContainerClient container = GetContainer();
         await container.DeleteBlobIfExistsAsync(key.ToString(), DeleteSnapshotsOption.IncludeSnapshots);
     }
 
     public async Task<IEnumerable<Guid>> CleanUpOldTempFiles(DateTime now)
     {
-        BlobContainerClient container = await GetContainerAsync();
+        BlobContainerClient container = GetContainer();
         List<Guid> keysToDelete = [];
 
-        await foreach (BlobItem blob in container.GetBlobsAsync(BlobTraits.Metadata))
+        await foreach (BlobItem blob in container.GetBlobsAsync(new GetBlobsOptions { Traits = BlobTraits.Metadata }))
         {
             MetaDataFile metadata;
             try
