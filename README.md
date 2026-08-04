@@ -44,7 +44,7 @@ The `ContainerName` is optional and defaults to `tempfiles`
 **Security Note:** For production environments, use Azure Key Vault, Managed Identity, or environment variables instead of storing connection strings in configuration files.
 
 ## Versioning
-This package starts at version 17 to align with Umbraco's versioning scheme and other storage provider packages. This makes it easier to identify which version to install based on your Umbraco version. For example, version 17.x is compatible with Umbraco 17.
+This package starts at version 17 to align with Umbraco's versioning scheme and other storage provider packages. This makes it easier to identify which version to install based on your Umbraco version. For example, version 18.x is compatible with Umbraco 18.
 
 
 ## How It Works
@@ -53,7 +53,7 @@ This package implements Umbraco's `ITemporaryFileRepository` interface, redirect
 
 ## Requirements
 
-- Umbraco 17.0 or higher
+- Umbraco 18.0 or higher
 - Azure Storage Account
 
 ## Contributing
