@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Azure Blob Storage provider for Umbraco CMS temporary file uploads. Implements `ITemporaryFileRepository` to redirect temporary file storage from local disk to Azure Blob Storage, enabling stateless container deployments.
 
-**Target Framework:** .NET 10
-**Umbraco Version:** 18.x
-**Package Version:** Aligns with Umbraco versioning (18.x = Umbraco 18)
+**Target Framework:** .NET 11
+**Umbraco Version:** 19.x
+**Package Version:** Aligns with Umbraco versioning (19.x = Umbraco 19)
 
 ## Build Commands
 
